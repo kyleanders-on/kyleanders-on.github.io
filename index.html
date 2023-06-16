@@ -1,1 +1,71 @@
-"Hello, world! This is my personal page hosted on GitHub pages." 
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Storm Surge Tool</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700"
+      rel="stylesheet"
+    />
+
+    <!-- This may do nothing... -->
+    <link
+      rel="stylesheet"
+      href="https://use.fontawesome.com/releases/v5.4.1/css/all.css"
+      integrity="sha384-5sAR7xN1Nv6T6+dT2mhtzEpVJvfS3NScPQTrOxhwjIuvcA67KV2R5Jz6kr4abQsz"
+      crossorigin="anonymous"
+    />
+
+    <link rel="stylesheet" href="styles.css" />
+
+    <script
+      src="https://kit.fontawesome.com/c492433c15.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div class="main-block">
+      <h2>WxNet Storm Surge Tool</h2>
+
+      <form action="/">
+        <hr />
+
+        <div class="account-type">
+          <input type="radio" value="SPU" id="SPU" name="client" checked />
+          <label for="SPU" class="radio">Seattle Public Utilities</label>
+
+          <input type="radio" value="Delta" id="Delta" name="client" />
+          <label for="Delta" class="radio">City of Delta</label>
+        </div>
+
+        <hr />
+
+        <label id="icon" for="name"
+          ><i class="fa-solid fa-hurricane fa-spin fa-spin-reverse"></i
+        ></label>
+        <input
+          type="text"
+          name="name"
+          id="name"
+          placeholder="SLP value in hPa"
+          required
+        />
+
+        <hr />
+
+        <div class="btn-block">
+          <input type="button" value="Calculate" />
+        </div>
+
+        <!--    <div class="btn-block">
+          <button type="submit" href="/">Calculate</button>
+        </div> -->
+      </form>
+    </div>
+    <script src="water_levels.js"></script>
+  </body>
+</html>
+
+<!-- https://stackoverflow.com/questions/72321468/how-do-i-call-a-python-script-when-clicking-a-button-using-pyscript -->
