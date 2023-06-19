@@ -29,41 +29,37 @@
     <div class="main-block">
       <h2>WxNet Storm Surge Tool</h2>
 
-      <form action="/">
-        <hr />
+      <hr />
 
-        <div class="account-type">
-          <input type="radio" value="SPU" id="SPU" name="client" checked />
-          <label for="SPU" class="radio">Seattle Public Utilities</label>
+      <div class="client-name">
+        <input type="radio" value="SPU" id="SPU" name="client" checked />
+        <label for="SPU" class="radio">Seattle Public Utilities</label>
 
-          <input type="radio" value="Delta" id="Delta" name="client" />
-          <label for="Delta" class="radio">City of Delta</label>
-        </div>
+        <input type="radio" value="Delta" id="Delta" name="client" />
+        <label for="Delta" class="radio">City of Delta</label>
+      </div>
 
-        <hr />
+      <hr />
 
-        <label id="icon" for="name"
-          ><i class="fa-solid fa-hurricane fa-spin fa-spin-reverse"></i
-        ></label>
-        <input
-          type="text"
-          name="name"
-          id="name"
-          placeholder="SLP value in hPa"
-          required
-        />
+      <label id="icon" for="name"
+        ><i class="fa-solid fa-hurricane fa-spin fa-spin-reverse"></i
+      ></label>
+      <input
+        type="text"
+        name="SLP_value"
+        id="SLP_value"
+        placeholder="SLP value in hPa"
+        required
+      />
 
-        <hr />
+      <hr />
 
-        <div class="btn-block">
-          <input type="button" value="Calculate" />
-        </div>
-
-        <!--    <div class="btn-block">
-          <button type="submit" href="/">Calculate</button>
-        </div> -->
-      </form>
+      <div class="btn-block">
+        <button id="my_button">Calculate</button>
+        <div id="result_msg"></div>
+        <button id="clear_button">Reset</button>
+      </div>
     </div>
-    <script src="water_levels.js"></script>
+    <script type="module" src="water_levels.js"></script>
   </body>
 </html>
