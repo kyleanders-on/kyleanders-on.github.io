@@ -6,7 +6,7 @@ html, body {
 
 body, div, h1, form, input, p { 
     padding: 0;
-    margin: 0;
+    margin: 0 30px;
     outline: none;
     font-family: Roboto, Arial, sans-serif;
     font-size: 16px;
@@ -28,12 +28,14 @@ h2 {
 }
 
 p {
-    font-size: 12px;
+    font-size: 15px;
+    text-align: center;
 }
 
 hr {
     color: #a9a9a9;
     opacity: 0.3;
+    margin: 0 30px;
 }
 
 .main-block {
@@ -51,7 +53,7 @@ form {
     margin: 0 30px;
 }
 
-.account-type, .gender {
+.client-name, .gender {
     margin: 15px 0;
 }
 
@@ -60,7 +62,7 @@ input[type=radio] {
 }
 
 label#icon {
-    margin: 0;
+    margin: 0 30px;
     border-radius: 5px 0 0 5px;
 }
 
@@ -68,7 +70,7 @@ label.radio {
     position: relative;
     display: inline-block;
     padding-top: 4px;
-    margin-right: 20px;
+    margin: 0 30px;
     text-indent: 30px;
     overflow: visible;
     cursor: pointer;
@@ -103,10 +105,10 @@ input[type=radio]:checked + label:after {
     opacity: 1;
 }
 
-input[type=text], input[type=password] {
-    width: calc(100% - 57px);
+input[type=text] {
+    width: calc(100% - 120px);
     height: 36px;
-    margin: 13px 0 0 -5px;
+    margin: 21px -28px 7px -34px;
     padding-left: 10px; 
     border-radius: 0 5px 5px 0;
     border: solid 1px #cbc9c9; 
@@ -114,9 +116,6 @@ input[type=text], input[type=password] {
     background: #fff; 
 }
 
-input[type=password] {
-    margin-bottom: 15px;
-}
 
 #icon {
     display: inline-block;
@@ -162,4 +161,8 @@ input[type=button]:hover {
 
 button:hover {
     background: #26a9e0;
+}
+
+#result_msg {
+    color: red;
 }
