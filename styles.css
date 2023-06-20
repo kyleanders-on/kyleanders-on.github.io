@@ -39,7 +39,7 @@ hr {
 }
 
 .main-block {
-    max-width: 340px; 
+    max-width: 358px; 
     min-height: 430px; 
     padding: 10px 0;
     margin: auto;
@@ -164,5 +164,10 @@ button:hover {
 }
 
 #result_msg {
-    color: red;
+    width: 19em; 
+    font-size: 1.1em;
+    margin: 10px 0 10px -20px;
+    text-align: center;
+    font-family: sans-serif;
+    color:#5a5a5a
 }
