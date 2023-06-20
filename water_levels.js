@@ -36,6 +36,18 @@ let clear_btn = document.getElementById("clear_button");
 clear_btn.addEventListener("click", clear_msg);
 
 
-/* console.log("95% confidence the true storm surge value is between " + p_interval_lower + "m - " + p_interval_upper + "m.\n");
-console.log("Best guess is " + mean_value + "m.");
- */
+async function read_file() {
+    try {
+        const response = await fetch('https://github.com/marbzgrop/marbzgrop.github.io/blob/main/test.csv');
+        if (response.ok) {
+            const file_contents = await response.text();
+            console.log(file_contents);
+        } else {
+            console.error('Error: ' + response.status);
+        }
+    } catch (error) {
+        console.error('Error: ' + error);
+    }
+}
+
+read_file();
