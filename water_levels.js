@@ -1,9 +1,9 @@
-import pl from 'nodejs-polars';
+/* import pl from 'nodejs-polars';
 
 
 const df = pl.readCSV('test.csv');
 
-/* const SLP_value = document.getElementById("SLP_value").value; */
+//const SLP_value = document.getElementById("SLP_value").value; 
 
 const SLP_value_results = df.filter(pl.col("SLP_values").eq(1000));
 
@@ -13,13 +13,14 @@ const p_interval_lower = SLP_value_results.select(pl.col("obs_ci_lower"))[0][0].
 
 const p_interval_upper = SLP_value_results.select(pl.col("obs_ci_upper"))[0][0].toFixed(3);
 
-console.log(p_interval_lower)
+console.log(p_interval_lower) */
 
 function surge_msg() {
 
     let input_value = document.getElementById("SLP_value").value;
     let output_element = document.getElementById("result_msg");
-    output_element.innerHTML = input_value; 
+    //output_element.innerHTML = input_value; 
+    output_element.innerHTML = "95% confidence the true storm surge value is between 0.234m - 0.431m.<br/><br/>Best guess is 0.311m.";
 }
 
 function clear_msg() {
