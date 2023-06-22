@@ -34,10 +34,21 @@
       <hr />
 
       <div class="client-name">
-        <input type="radio" value="SPU" id="SPU" name="client" checked />
+        <input
+          type="radio"
+          value="https://raw.githubusercontent.com/marbzgrop/marbzgrop.github.io/main/SPU.csv"
+          id="SPU"
+          name="client"
+          checked
+        />
         <label for="SPU" class="radio">Seattle Public Utilities</label>
 
-        <input type="radio" value="Delta" id="Delta" name="client" />
+        <input
+          type="radio"
+          value="https://raw.githubusercontent.com/marbzgrop/marbzgrop.github.io/main/Delta.csv"
+          id="Delta"
+          name="client"
+        />
         <label for="Delta" class="radio">City of Delta</label>
       </div>
 
@@ -57,7 +68,7 @@
       <hr />
 
       <div class="btn-block">
-        <button id="my_button">Calculate</button>
+        <button id="calc_button">Calculate</button>
         <div id="result_msg"></div>
         <button id="clear_button">Reset</button>
       </div>
