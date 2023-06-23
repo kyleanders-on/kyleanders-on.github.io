@@ -45,41 +45,27 @@ async function read_file() {
 }
 
 function surge_msg(parsed_data, client) {
-  console.log(client);
-
   // Store SLP user input value
   let input_value = document.getElementById("SLP_value").value;
 
   // One row of model data associated with a given SLP value
-  let SLP_value_data = parsed_data[input_value - 800];
-
-  // Separate desired variables from row
-  let best_guess = parseFloat(SLP_value_data["mean"]).toFixed(2);
-  let p_interval_lower = parseFloat(SLP_value_data["obs_ci_lower"]).toFixed(2);
-  let p_interval_upper = parseFloat(SLP_value_data["obs_ci_upper"]).toFixed(2);
-
+  let idx_value = input_value - 800;
   let output_element = document.getElementById("result_msg");
 
-  // if statement that checks for input ID?
-
-  if (client == "Delta") {
-    output_element.innerHTML =
-      `95% confidence the true storm surge value is between ` +
-      p_interval_lower +
-      `m and ` +
-      p_interval_upper +
-      `m.<br/><br/>Best guess is ` +
-      best_guess +
-      `m.`;
+  if (idx_value < 0 || input_value > 1100) {
+    output_element.innerHTML = `Please input a realistic SLP value.`;
   } else {
-    output_element.innerHTML =
-      `95% confidence the true storm surge value is between ` +
-      p_interval_lower +
-      `ft and ` +
-      p_interval_upper +
-      `ft.<br/><br/>Best guess is ` +
-      best_guess +
-      `ft.`;
+    let SLP_value_data = parsed_data[idx_value];
+    let best_guess = parseFloat(SLP_value_data["mean"]).toFixed(2);
+    let p_interval_lower = parseFloat(SLP_value_data["obs_ci_lower"]).toFixed(
+      2
+    );
+    let p_interval_upper = parseFloat(SLP_value_data["obs_ci_upper"]).toFixed(
+      2
+    );
+
+    let unit = client == "Delta" ? "m" : "ft";
+    output_element.innerHTML = `95% confidence the true storm surge value is between ${p_interval_lower}${unit} and ${p_interval_upper}${unit}.<br/><br/>Best guess is ${best_guess}${unit}.`;
   }
 }
 
