@@ -66,7 +66,7 @@ function surge_msg(parsed_data, client) {
     output_element.innerHTML =
       `95% confidence the true storm surge value is between ` +
       p_interval_lower +
-      `m - ` +
+      `m and ` +
       p_interval_upper +
       `m.<br/><br/>Best guess is ` +
       best_guess +
@@ -75,7 +75,7 @@ function surge_msg(parsed_data, client) {
     output_element.innerHTML =
       `95% confidence the true storm surge value is between ` +
       p_interval_lower +
-      `ft - ` +
+      `ft and ` +
       p_interval_upper +
       `ft.<br/><br/>Best guess is ` +
       best_guess +
