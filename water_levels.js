@@ -49,16 +49,21 @@ function surge_msg(parsed_data, client) {
   let input_value = document.getElementById("SLP_value").value;
 
   // One row of model data associated with a given SLP value
-  let idx_value = input_value - 800;
+  let idx_value = input_value - 900;
   let output_element = document.getElementById("result_msg");
 
-  if (idx_value < 0 || input_value > 1100) {
-    output_element.innerHTML = `Please input a realistic SLP value.`;
+  if (idx_value < 0 || input_value > 1050 || input_value % 1 !== 0) {
+    output_element.innerHTML = `Please input an integer value between 900hPa and 1050hPa.`;
   } else {
     let SLP_value_data = parsed_data[idx_value];
+    console.log(SLP_value_data + " and " + idx_value);
     let best_guess = parseFloat(SLP_value_data["mean"]).toFixed(2);
-    let p_interval_lower = parseFloat(SLP_value_data["obs_ci_lower"]).toFixed(2);
-    let p_interval_upper = parseFloat(SLP_value_data["obs_ci_upper"]).toFixed(2);
+    let p_interval_lower = parseFloat(SLP_value_data["obs_ci_lower"]).toFixed(
+      2
+    );
+    let p_interval_upper = parseFloat(SLP_value_data["obs_ci_upper"]).toFixed(
+      2
+    );
 
     let unit = client == "Delta" ? "m" : "ft";
     output_element.innerHTML = `95% confidence the true storm surge value is between ${p_interval_lower}${unit} and ${p_interval_upper}${unit}.<br/><br/>Best guess is ${best_guess}${unit}.`;
