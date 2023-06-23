@@ -57,12 +57,8 @@ function surge_msg(parsed_data, client) {
   } else {
     let SLP_value_data = parsed_data[idx_value];
     let best_guess = parseFloat(SLP_value_data["mean"]).toFixed(2);
-    let p_interval_lower = parseFloat(SLP_value_data["obs_ci_lower"]).toFixed(
-      2
-    );
-    let p_interval_upper = parseFloat(SLP_value_data["obs_ci_upper"]).toFixed(
-      2
-    );
+    let p_interval_lower = parseFloat(SLP_value_data["obs_ci_lower"]).toFixed(2);
+    let p_interval_upper = parseFloat(SLP_value_data["obs_ci_upper"]).toFixed(2);
 
     let unit = client == "Delta" ? "m" : "ft";
     output_element.innerHTML = `95% confidence the true storm surge value is between ${p_interval_lower}${unit} and ${p_interval_upper}${unit}.<br/><br/>Best guess is ${best_guess}${unit}.`;
