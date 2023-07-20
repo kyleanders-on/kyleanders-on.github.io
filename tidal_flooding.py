@@ -1,17 +1,24 @@
 # %% [markdown]
 # Import necessary packages
+
 # %%
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import toml
 
+# %% [markdown]
+# Read configuration file to access API tokens
+
+# %%
+config = toml.load("config.toml")
+API_token = config["API"]["Mesonet_token"]
 
 # %% [markdown]
 # Request SLP data from Mesonet database
-# %%
-API_token = "b29add930aa84e39bb1fa38bac04165b"
 
+# %%
 station_id = "KEWR"
 API_root = "https://api.synopticdata.com/v2/stations/timeseries"
 
@@ -34,9 +41,10 @@ parsed_data = json_data["STATION"][0]["OBSERVATIONS"]
 KEWR = pd.DataFrame(parsed_data)
 KEWR.set_index(KEWR["date_time"], inplace=True)
 
-
 # %% [markdown]
 # Request tidal data from NOAA CO-OPS
+
+
 # %% 6-minute water level obs. NOAA CO-OPS API limits data retrievals to 31 days for this product
 def fetch_water_level_data(start_date, end_date):
     base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
