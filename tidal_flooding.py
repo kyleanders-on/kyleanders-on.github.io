@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import numpy as np
+import statsmodels.api as sm
 
 
 # %% Map ICAO codes to NCEI station identifiers
@@ -217,7 +218,19 @@ tide_pred["water_level"] = tide_pred["water_level"].astype(float)
 
 # %%
 
-surge = water_level_obs - tide_pred
-SLP = SLP_data["SLP"]
+SLP = SLP_data["SLP"].dropna()
+surge = (water_level_obs - tide_pred).dropna().reindex(SLP.index, method="nearest")
+
+X = SLP
+X = sm.add_constant(X)
+y = surge["water_level"]
+
+model = sm.OLS(y, X).fit()
+print(model.summary())
+reg_line = model.predict(X)
+
+fig, ax = plt.subplots()
+ax.plot(X["SLP"].values, y.values, "k.")
+ax.plot(X["SLP"].values, reg_line.values, "r")
 
 # %%
