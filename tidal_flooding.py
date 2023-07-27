@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import numpy as np
 
 
-# %% Map ICAO/IATA codes to NCEI station identifiers
+# %% Map ICAO codes to NCEI station identifiers
 station_code = "KEWR"
 url = (
     "https://www.ncei.noaa.gov/access/homr/services/station/search?qid=ICAO:"
