@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import numpy as np
 import statsmodels.api as sm
+import seaborn as sns
+from scipy import stats
 
 
 # %% Map ICAO codes to NCEI station identifiers
@@ -231,10 +233,89 @@ y = surge["water_level"]
 
 model = sm.OLS(y, X).fit()
 print(model.summary())
-reg_line = model.predict(X)
 
+# plot best fit line
+reg_line = model.predict(X)
 fig, ax = plt.subplots()
 ax.plot(X["SLP"].values, y.values, "k.")
 ax.plot(X["SLP"].values, reg_line.values, "r")
+ax.set_xlabel("Sea Level Pressure (hPa)")
+ax.set_ylabel("Storm surge estimate (ft)")
+ax.set_title(
+    "Observed water level/Base tide prediction difference vs Sea Level Pressure"
+)
+
+
+# Compare residuals distribution to a normal curve
+mu, std = stats.norm.fit(model.resid)
+fig2, ax2 = plt.subplots()
+sns.histplot(x=model.resid, ax=ax2, stat="density", linewidth=0, kde=False)
+sns.kdeplot(
+    x=model.resid, ax=ax2, label="Kernel Density Estimation", linewidth=2.5, color="g"
+)
+ax2.set(title="Distribution of residuals (SLP vs storm surge)", xlabel="residual")
+xmin, xmax = plt.xlim()  # the maximum x values from the histogram above
+x = np.linspace(xmin, xmax, 100)
+p = stats.norm.pdf(x, mu, std)
+sns.lineplot(
+    x=x, y=p, color="orange", ax=ax2, label="Normal Distribution", linewidth=2.5
+)
+
+# plot residuals vs leverage
+norm_resid = model.get_influence().resid_studentized_internal
+lev = model.get_influence().hat_matrix_diag
+Cooks = model.get_influence().cooks_distance[0]
+
+plot_lm = plt.figure()
+plt.scatter(lev, norm_resid, alpha=0.5)
+sns.regplot(
+    x=lev,
+    y=norm_resid,
+    scatter=False,
+    ci=False,
+    lowess=True,
+    line_kws={"color": "red", "lw": 1, "alpha": 0.8},
+)
+plot_lm.axes[0].set_xlim(0, max(lev) + 0.01)
+plot_lm.axes[0].set_ylim(-3, 5)
+plot_lm.axes[0].set_title("Residuals vs Leverage")
+plot_lm.axes[0].set_xlabel("Leverage")
+plot_lm.axes[0].set_ylabel("Standardized Residuals")
+
+# %% [markdown]
+# Regression model prediction output
+
 
 # %%
+def pred_interval(result, SLP, sig_lvl):
+    # result: OLS model.
+    # SLP: input sea level pressure value
+    # sig_lvl: level of significance.
+    X = [1, SLP]  # put input value into correct format
+    predictions = result.get_prediction(X)
+    frame = predictions.summary_frame(alpha=sig_lvl)
+    return frame["mean"][0], frame["obs_ci_lower"][0], frame["obs_ci_upper"][0]
+
+
+new_SLP_value = float(input("SLP value in hPa: "))
+
+best_guess, PI_lower, PI_upper = pred_interval(model, new_SLP_value, 0.05)
+
+print(
+    "\n95% confidence the true storm surge value is between "
+    + str(PI_lower.round(3))
+    + "ft - "
+    + str(PI_upper.round(3))
+    + "ft.\n"
+)
+print("Best guess is " + str(best_guess.round(3)) + "ft.")
+
+# Create an array of realistic SLP values (900-1050)hPa
+real_SLP = np.arange(900, 1051)
+x = sm.add_constant(real_SLP)
+pred = model.get_prediction(x)
+frame = pred.summary_frame(alpha=0.05)
+
+# add realistic SLP values to output DataFrame
+frame["SLP_values"] = real_SLP
+frame.set_index("SLP_values", inplace=True)
