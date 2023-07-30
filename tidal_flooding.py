@@ -22,8 +22,8 @@ id_map = pd.json_normalize(
 )
 
 # %% Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2019
-end_year = 2020
+start_year = 2020
+end_year = 2023
 
 # %% [markdown]
 # Request SLP data from NCEI database (Integrated Surface Dataset)
@@ -51,6 +51,10 @@ def fetch_SLP(start_year, end_year):
     response = requests.get(base_url, params=API_arguments)
     if 200 <= response.status_code < 300:
         data.append(response.json())
+    else:
+        print(
+            f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
+        )
 
     return data
 
