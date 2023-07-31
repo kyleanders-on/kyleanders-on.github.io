@@ -245,6 +245,7 @@ ax.set_title(
     "Observed water level/Base tide prediction difference vs Sea Level Pressure"
 )
 
+fig.show()
 
 # Compare residuals distribution to a normal curve
 mu, std = stats.norm.fit(model.resid)
@@ -260,6 +261,8 @@ p = stats.norm.pdf(x, mu, std)
 sns.lineplot(
     x=x, y=p, color="orange", ax=ax2, label="Normal Distribution", linewidth=2.5
 )
+
+fig2.show()
 
 # plot residuals vs leverage
 norm_resid = model.get_influence().resid_studentized_internal
@@ -319,3 +322,5 @@ frame = pred.summary_frame(alpha=0.05)
 # add realistic SLP values to output DataFrame
 frame["SLP_values"] = real_SLP
 frame.set_index("SLP_values", inplace=True)
+
+# %%
