@@ -271,7 +271,6 @@ ax.set_xlabel(f"{wx_station_code} Sea Level Pressure (hPa)")
 ax.set_ylabel(f"{tidal_station_name} Storm surge estimate (ft)")
 ax.set_title(
     "Observed water level/base tide prediction difference vs sea level pressure",
-    fontsize=14,
 )
 
 fig.show()
