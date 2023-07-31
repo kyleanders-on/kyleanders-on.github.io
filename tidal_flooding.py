@@ -12,16 +12,41 @@ import seaborn as sns
 from scipy import stats
 
 
-# %% Map ICAO codes to NCEI station identifiers
-station_code = "KEWR"
+# %% Map ICAO codes to NCEI station identifiers (AWSBAN QID)
+# Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
+# but that file is too large to justify this mapping feature.
+wx_station_code = "KBFI"
 url = (
     "https://www.ncei.noaa.gov/access/homr/services/station/search?qid=ICAO:"
-    + station_code
+    + wx_station_code
 )
 response = requests.get(url)
 id_map = pd.json_normalize(
     response.json()["stationCollection"]["stations"], record_path=["identifiers"]
 )
+
+
+# %% Map station names to station ID
+
+
+def get_station_id(station_name):
+    url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
+    response = requests.get(url)
+    id_map = pd.json_normalize(response.json()["stations"])
+    id_map.set_index(id_map["name"], inplace=True)
+    id_map.drop(columns=["name"], inplace=True)
+
+    try:
+        station_id = id_map.loc[station_name]["id"]
+        return station_id
+    except KeyError:
+        print(f"Error: Station '{station_name}' not found in the NOAA database.")
+        return None
+
+
+tidal_station_name = "Seattle"
+tidal_station_id = get_station_id(tidal_station_name)
+
 
 # %% Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
 start_year = 2020
@@ -34,7 +59,7 @@ end_year = 2023
 # %% Hourly SLP observations
 def fetch_SLP(start_year, end_year):
     base_url = "https://www.ncei.noaa.gov/access/services/data/v1"
-    station_id = "72502014734"  # KEWR AWSBAN Qualified ID
+    station_id = "72793524234"  # AWSBAN Qualified ID
     wx_variable = "SLP"
     start = datetime(start_year, 10, 1)
     end = datetime(end_year, 4, 2)
@@ -91,14 +116,13 @@ SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
 
 # %% 6-minute water level obs. NOAA CO-OPS API limits data retrievals to 31 days for this product
-def fetch_water_level_data(start_date, end_date):
+def fetch_water_level_data(start_date, end_date, station_id):
     base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     product = "water_level"
     datum = "MLLW"
     units = "english"
     time_zone = "GMT"
     format_type = "json"
-    station_id = "8518750"  # The Battery (south end of Manhatten)
 
     interval = timedelta(days=31)
     current_date = start_date
@@ -136,19 +160,21 @@ def fetch_water_level_data(start_date, end_date):
     return data
 
 
-def gather_data_for_multiple_years(start_year, end_year):
+def gather_data_for_multiple_years(start_year, end_year, station_id):
     data = []
     current_year = start_year
     while current_year < end_year:
         start_date = datetime(current_year, 10, 1)
         end_date = datetime(current_year + 1, 4, 2)
-        data.extend(fetch_water_level_data(start_date, end_date))
+        data.extend(fetch_water_level_data(start_date, end_date, station_id))
         current_year += 1
 
     return data
 
 
-water_level_data = gather_data_for_multiple_years(start_year, end_year)
+water_level_data = gather_data_for_multiple_years(
+    start_year, end_year, tidal_station_id
+)
 
 water_level_obs = pd.DataFrame(water_level_data)
 water_level_obs.rename(columns={"t": "date_time", "v": "water_level"}, inplace=True)
@@ -163,14 +189,13 @@ water_level_obs["water_level"] = water_level_obs["water_level"].astype(float)
 
 
 # %% 6-minute base tide predictions from NOAA CO-OPS
-def fetch_tides(start_date, end_date):
+def fetch_tides(start_date, end_date, station_id):
     base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     product = "predictions"
     datum = "MLLW"
     units = "english"
     time_zone = "GMT"
     format_type = "json"
-    station_id = "8518750"  # The Battery (south end of Manhatten)
 
     current_date = start_date
     data = []
@@ -198,18 +223,20 @@ def fetch_tides(start_date, end_date):
     return data
 
 
-def gather_data_for_multiple_years(start_year, end_year):
+def gather_data_for_multiple_years(start_year, end_year, station_id):
     data = []
     current_year = start_year
     while current_year < end_year:
         start_date = datetime(current_year, 10, 1)
         end_date = datetime(current_year + 1, 4, 2)
-        data.extend(fetch_tides(start_date, end_date))
+        data.extend(fetch_tides(start_date, end_date, station_id))
         current_year += 1
     return data
 
 
-tide_prediction_data = gather_data_for_multiple_years(start_year, end_year)
+tide_prediction_data = gather_data_for_multiple_years(
+    start_year, end_year, tidal_station_id
+)
 
 tide_pred = pd.DataFrame(tide_prediction_data)
 tide_pred.rename(columns={"t": "date_time", "v": "water_level"}, inplace=True)
@@ -237,12 +264,14 @@ print(model.summary())
 # plot best fit line
 reg_line = model.predict(X)
 fig, ax = plt.subplots()
+fig.set_size_inches(10, 7)
 ax.plot(X["SLP"].values, y.values, "k.")
 ax.plot(X["SLP"].values, reg_line.values, "r")
-ax.set_xlabel("Sea Level Pressure (hPa)")
-ax.set_ylabel("Storm surge estimate (ft)")
+ax.set_xlabel(f"{wx_station_code} Sea Level Pressure (hPa)")
+ax.set_ylabel(f"{tidal_station_name} Storm surge estimate (ft)")
 ax.set_title(
-    "Observed water level/Base tide prediction difference vs Sea Level Pressure"
+    "Observed water level/base tide prediction difference vs sea level pressure",
+    fontsize=14,
 )
 
 fig.show()
@@ -250,6 +279,7 @@ fig.show()
 # Compare residuals distribution to a normal curve
 mu, std = stats.norm.fit(model.resid)
 fig2, ax2 = plt.subplots()
+fig2.set_size_inches(10, 7)
 sns.histplot(x=model.resid, ax=ax2, stat="density", linewidth=0, kde=False)
 sns.kdeplot(
     x=model.resid, ax=ax2, label="Kernel Density Estimation", linewidth=2.5, color="g"
@@ -267,9 +297,11 @@ fig2.show()
 # plot residuals vs leverage
 norm_resid = model.get_influence().resid_studentized_internal
 lev = model.get_influence().hat_matrix_diag
-Cooks = model.get_influence().cooks_distance[0]
+Cooks_distance = model.get_influence().cooks_distance[0]
 
-plot_lm = plt.figure()
+# plot_lm = plt.figure()
+fig3, ax3 = plt.subplots()
+fig3.set_size_inches(10, 7)
 plt.scatter(lev, norm_resid, alpha=0.5)
 sns.regplot(
     x=lev,
@@ -279,12 +311,16 @@ sns.regplot(
     lowess=True,
     line_kws={"color": "red", "lw": 1, "alpha": 0.8},
 )
-plot_lm.axes[0].set_xlim(0, max(lev) + 0.01)
-plot_lm.axes[0].set_ylim(-3, 5)
-plot_lm.axes[0].set_title("Residuals vs Leverage")
-plot_lm.axes[0].set_xlabel("Leverage")
-plot_lm.axes[0].set_ylabel("Standardized Residuals")
 
+ax3.set_title("Residuals vs Leverage")
+ax3.set_xlabel("Leverage")
+ax3.set_ylabel("Standardized Residuals")
+
+leverage_top_3 = np.flip(np.argsort(Cooks_distance), 0)[:3]
+for i in leverage_top_3:
+    ax3.annotate(i, xy=(lev[i], norm_resid[i]))
+
+fig3.show()
 # %% [markdown]
 # Regression model prediction output
 
@@ -300,18 +336,18 @@ def pred_interval(result, SLP, sig_lvl):
     return frame["mean"][0], frame["obs_ci_lower"][0], frame["obs_ci_upper"][0]
 
 
-new_SLP_value = float(input("SLP value in hPa: "))
+# new_SLP_value = float(input("SLP value in hPa: "))
 
-best_guess, PI_lower, PI_upper = pred_interval(model, new_SLP_value, 0.05)
+# best_guess, PI_lower, PI_upper = pred_interval(model, new_SLP_value, 0.05)
 
-print(
-    "\n95% confidence the true storm surge value is between "
-    + str(PI_lower.round(3))
-    + "ft - "
-    + str(PI_upper.round(3))
-    + "ft.\n"
-)
-print("Best guess is " + str(best_guess.round(3)) + "ft.")
+# print(
+#     "\n95% confidence the true storm surge value is between "
+#     + str(PI_lower.round(3))
+#     + "ft - "
+#     + str(PI_upper.round(3))
+#     + "ft.\n"
+# )
+# print("Best guess is " + str(best_guess.round(3)) + "ft.")
 
 # Create an array of realistic SLP values (900-1050)hPa
 real_SLP = np.arange(900, 1051)
