@@ -8,14 +8,13 @@ The Python script, tidal_flooding.py, is designed to access and process observed
 
 ## Objective
 
-The December 2022 flooding event underscored the importance of evaluating existing forecasting methods, highlighting the urgent necessity for an accurate and dependable tool to predict storm surges in the Salish Sea. By developing this forecasting tool, I hope to empower communities with vital information that can aid in planning for, and ultimately minimizing, the adverse effects of tidal flooding.
+The December 2022 flooding event underscored the importance of evaluating existing forecasting methods, highlighting the urgent necessity for an accurate and dependable tool to predict storm surges in the Salish Sea. By developing this forecasting tool, I hope to empower communities with useful information that can aid in planning for, and ultimately minimizing, the adverse effects of tidal flooding.
 
-While this project's primary focus is on the South Park neighborhood and the Boundary Bay area, its methodology can be applied to other regions within the Salish Sea. However, it is essential to acknowledge that certain limitations may affect the tool's forecasting accuracy, such as data availability and the complexity of meteorological factors involved.
+While this project's primary focus is on the Duwamish Watershed and the Boundary Bay area, its methodology can be applied to other regions within the Salish Sea. However, it is essential to acknowledge that certain limitations may affect the tool's forecasting accuracy, such as data availability and the complexity of meteorological factors involved.
 
 ### Dependencies
 
-* Describe any prerequisites, libraries, OS version, etc., needed before installing program.
-* ex. Windows 10
-
+*
+*
 
 
