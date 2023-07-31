@@ -15,11 +15,6 @@ The December 2022 flooding event underscored the importance of evaluating existi
 
 While this project's primary focus is on the Duwamish Watershed and the Boundary Bay area, its methodology can be applied to other regions within the Salish Sea. However, it is essential to acknowledge that certain limitations may affect the tool's forecasting accuracy, such as data availability and the complexity of meteorological factors involved.
 
-### Dependencies
-
-*
-*
-
 
 
 
