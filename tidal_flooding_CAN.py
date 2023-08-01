@@ -15,7 +15,7 @@ from scipy import stats
 # %% Map ICAO codes to NCEI station identifiers (AWSBAN QID)
 # Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
 # but that file is too large to justify this mapping feature.
-wx_station_code = "KBFI"
+wx_station_code = "KBLI"
 url = (
     "https://www.ncei.noaa.gov/access/homr/services/station/search?qid=ICAO:"
     + wx_station_code
@@ -26,32 +26,33 @@ id_map = pd.json_normalize(
 )
 
 
-# %% Map tidal station names to station ID
+# %% Map British Columbia tidal station names to station ID
+# Data provided by the Canadian Hydrographic Service (CHS)
 
-# If station name is unknown, you can browse available stations at https://tidesandcurrents.noaa.gov/
+# If station name is unknown, you can browse available stations at https://tides.gc.ca/en/stations
 
 
 def get_station_id(station_name):
-    url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
+    url = "https://api-iwls.dfo-mpo.gc.ca/api/v1/stations?chs-region-code=PAC"
     response = requests.get(url)
-    id_map = pd.json_normalize(response.json()["stations"])
-    id_map.set_index(id_map["name"], inplace=True)
-    id_map.drop(columns=["name"], inplace=True)
+    id_map = pd.json_normalize(response.json())
+    id_map.set_index(id_map["officialName"], inplace=True)
+    id_map.drop(columns=["officialName"], inplace=True)
 
     try:
         station_id = id_map.loc[station_name]["id"]
         return station_id
     except KeyError:
-        print(f"Error: Station '{station_name}' not found in the NOAA database.")
+        print(f"Error: Station '{station_name}' not found in the CHS database.")
         return None
 
 
-tidal_station_name = "Seattle"
+tidal_station_name = "Point Atkinson"
 tidal_station_id = get_station_id(tidal_station_name)
 
 
 # %% Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2020
+start_year = 2022
 end_year = 2023
 
 # %% [markdown]
@@ -61,7 +62,7 @@ end_year = 2023
 # %% Hourly SLP observations
 def fetch_SLP(start_year, end_year):
     base_url = "https://www.ncei.noaa.gov/access/services/data/v1"
-    station_id = "72793524234"  # AWSBAN Qualified ID
+    station_id = "72797624217"  # AWSBAN Qualified ID
     wx_variable = "SLP"
     start = datetime(start_year, 10, 1)
     end = datetime(end_year, 4, 2)
@@ -114,139 +115,94 @@ SLP_data["SLP"] = SLP_data["SLP"].astype(float) / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
 # %% [markdown]
-# Request water level observations from NOAA CO-OPS
+# Request water level observations and predictions from CHS
 
 
-# %% 6-minute water level obs. NOAA CO-OPS API limits data retrievals to 31 days for this product
-def fetch_water_level_data(start_date, end_date, station_id):
-    base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-    product = "water_level"
-    datum = "MLLW"
-    units = "english"
-    time_zone = "GMT"
-    format_type = "json"
+# %% 5-minute water level observations and predicitions. CHS API limits data retrievals to 7 days for this product
+# time-series-codes: wlo = water level observations
+#                    wlp = water level predictions
+def fetch_water_level_data(start_date, end_date, station_id, ts_product):
+    base_url = f"https://api-iwls.dfo-mpo.gc.ca/api/v1/stations/{station_id}/data"
+    product = ts_product  # water level observations
+    obs_interval = "FIVE_MINUTES"
 
-    interval = timedelta(days=31)
+    interval = timedelta(days=7)
     current_date = start_date
     data = []
 
     while current_date <= end_date:
-        start = current_date.strftime("%Y%m%d %H:%M")
-        end = (current_date + interval).strftime("%Y%m%d %H:%M")
+        start = current_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end = (current_date + interval).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         params = {
-            "product": product,
-            "datum": datum,
-            "units": units,
-            "time_zone": time_zone,
-            "format": format_type,
-            "begin_date": start,
-            "end_date": end,
-            "station": station_id,
+            "time-series-code": product,
+            "from": start,
+            "to": end,
+            "resolution": obs_interval,
         }
 
         # Adjust the end_date in the last request
         if current_date + interval > end_date:
-            params["end_date"] = end_date.strftime("%Y%m%d %H:%M")
+            params["to"] = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         response = requests.get(base_url, params=params)
         if 200 <= response.status_code < 300:
-            data.extend(response.json()["data"])
+            data.extend(response.json())
         else:
             print(
                 f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
             )
 
-        current_date += interval + timedelta(days=1)
+        current_date += interval + timedelta(minutes=5)
 
     return data
 
 
-def gather_data_for_multiple_years(start_year, end_year, station_id):
+def gather_data_for_multiple_years(start_year, end_year, station_id, ts_product):
     data = []
     current_year = start_year
     while current_year < end_year:
         start_date = datetime(current_year, 10, 1)
         end_date = datetime(current_year + 1, 4, 2)
-        data.extend(fetch_water_level_data(start_date, end_date, station_id))
+        data.extend(
+            fetch_water_level_data(start_date, end_date, station_id, ts_product)
+        )
         current_year += 1
 
     return data
 
 
+# %% Water level observations from CHS
+
+time_series_code = "wlo"
 water_level_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id
+    start_year, end_year, tidal_station_id, time_series_code
 )
 
 water_level_obs = pd.DataFrame(water_level_data)
-water_level_obs.rename(columns={"t": "date_time", "v": "water_level"}, inplace=True)
-water_level_obs["date_time"] = pd.to_datetime(water_level_obs["date_time"])
-water_level_obs.set_index(water_level_obs["date_time"], inplace=True)
-water_level_obs.drop(["date_time", "s", "f", "q"], axis=1, inplace=True)
-water_level_obs = water_level_obs.tz_localize(tz="UTC")
-water_level_obs["water_level"] = water_level_obs["water_level"].astype(float)
+water_level_obs.rename(
+    columns={"eventDate": "datetime", "value": "water_level"}, inplace=True
+)
+water_level_obs["datetime"] = pd.to_datetime(water_level_obs["datetime"])
+water_level_obs.set_index(water_level_obs["datetime"], inplace=True)
+water_level_obs.drop(
+    ["datetime", "qcFlagCode", "timeSeriesId", "reviewed"], axis=1, inplace=True
+)
 
-# %% [markdown]
-# Request base tide predictions from NOAA CO-OPS
+# %% Base tide predictions from CHS
 
-
-# %% 6-minute base tide predictions from NOAA CO-OPS
-def fetch_tides(start_date, end_date, station_id):
-    base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-    product = "predictions"
-    datum = "MLLW"
-    units = "english"
-    time_zone = "GMT"
-    format_type = "json"
-
-    current_date = start_date
-    data = []
-
-    start = current_date.strftime("%Y%m%d %H:%M")
-    end = (end_date).strftime("%Y%m%d %H:%M")
-    params = {
-        "product": product,
-        "datum": datum,
-        "units": units,
-        "time_zone": time_zone,
-        "format": format_type,
-        "begin_date": start,
-        "end_date": end,
-        "station": station_id,
-    }
-    response = requests.get(base_url, params=params)
-    if 200 <= response.status_code < 300:
-        data.extend(response.json()["predictions"])
-    else:
-        print(
-            f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
-        )
-
-    return data
-
-
-def gather_data_for_multiple_years(start_year, end_year, station_id):
-    data = []
-    current_year = start_year
-    while current_year < end_year:
-        start_date = datetime(current_year, 10, 1)
-        end_date = datetime(current_year + 1, 4, 2)
-        data.extend(fetch_tides(start_date, end_date, station_id))
-        current_year += 1
-    return data
-
-
+time_series_code = "wlp"
 tide_prediction_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id
+    start_year, end_year, tidal_station_id, time_series_code
 )
 
 tide_pred = pd.DataFrame(tide_prediction_data)
-tide_pred.rename(columns={"t": "date_time", "v": "water_level"}, inplace=True)
-tide_pred["date_time"] = pd.to_datetime(tide_pred["date_time"])
-tide_pred.set_index(tide_pred["date_time"], inplace=True)
-tide_pred.drop(["date_time"], axis=1, inplace=True)
-tide_pred = tide_pred.tz_localize(tz="UTC")
-tide_pred["water_level"] = tide_pred["water_level"].astype(float)
+tide_pred.rename(
+    columns={"eventDate": "datetime", "value": "water_level"}, inplace=True
+)
+tide_pred["datetime"] = pd.to_datetime(tide_pred["datetime"])
+tide_pred.set_index(tide_pred["datetime"], inplace=True)
+tide_pred.drop(["datetime", "qcFlagCode", "timeSeriesId"], axis=1, inplace=True)
 
 # %% [markdown]
 # Process data

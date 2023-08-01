@@ -26,7 +26,7 @@ id_map = pd.json_normalize(
 )
 
 
-# %% Map station names to station ID
+# %% Map tidal station names to station ID
 
 # If station name is unknown, you can browse available stations at https://tidesandcurrents.noaa.gov/
 
