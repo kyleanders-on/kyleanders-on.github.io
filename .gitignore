@@ -3,7 +3,3 @@ config.toml
 
 # Environment
 venv/
-
-# Model output CSV files
-Delta.csv
-SPU.csv
