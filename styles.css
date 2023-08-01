@@ -28,7 +28,7 @@ h1 {
 
 h2 {
   padding: 10px 0;
-  font-size: 30px;
+  font-size: 39px;
   font-weight: 300;
   text-align: center;
 }
@@ -59,8 +59,7 @@ form {
   margin: 0 30px;
 }
 
-.client-name,
-.gender {
+.client-name {
   margin: 15px 0;
 }
 

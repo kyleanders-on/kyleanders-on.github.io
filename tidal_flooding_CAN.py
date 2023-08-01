@@ -121,6 +121,7 @@ SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 # %% 5-minute water level observations and predicitions. CHS API limits data retrievals to 7 days for this product
 # time-series-codes: wlo = water level observations
 #                    wlp = water level predictions
+# API documentation: https://api-iwls.dfo-mpo.gc.ca/swagger-ui/index.html
 def fetch_water_level_data(start_date, end_date, station_id, ts_product):
     base_url = f"https://api-iwls.dfo-mpo.gc.ca/api/v1/stations/{station_id}/data"
     product = ts_product  # water level observations
