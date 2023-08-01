@@ -1,5 +1,9 @@
-# configuration file
+# Configuration file
 config.toml
 
-# project virtual environment
+# Environment
 venv/
+
+# Model output CSV files
+Delta.csv
+SPU.csv

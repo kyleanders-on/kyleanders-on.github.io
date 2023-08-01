@@ -28,6 +28,8 @@ id_map = pd.json_normalize(
 
 # %% Map station names to station ID
 
+# If station name is unknown, you can browse available stations at https://tidesandcurrents.noaa.gov/
+
 
 def get_station_id(station_name):
     url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
