@@ -51,7 +51,7 @@ tidal_station_id = get_station_id(tidal_station_name)
 
 
 # %% Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2020
+start_year = 2022
 end_year = 2023
 
 # %% [markdown]
@@ -114,13 +114,13 @@ SLP_data["SLP"] = SLP_data["SLP"].astype(float) / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
 # %% [markdown]
-# Request water level observations from NOAA CO-OPS
+# Request water level observations and base tide predictions from NOAA CO-OPS
 
 
-# %% 6-minute water level obs. NOAA CO-OPS API limits data retrievals to 31 days for this product
-def fetch_water_level_data(start_date, end_date, station_id):
+# %%
+def fetch_tide_data(start_date, end_date, station_id, tide_product):
     base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-    product = "water_level"
+    product = tide_product
     datum = "MLLW"
     units = "english"
     time_zone = "GMT"
@@ -132,7 +132,10 @@ def fetch_water_level_data(start_date, end_date, station_id):
 
     while current_date <= end_date:
         start = current_date.strftime("%Y%m%d %H:%M")
-        end = (current_date + interval).strftime("%Y%m%d %H:%M")
+        if product == "water_level":
+            end = (current_date + interval).strftime("%Y%m%d %H:%M")
+        else:
+            end = (end_date).strftime("%Y%m%d %H:%M")
 
         params = {
             "product": product,
@@ -151,31 +154,39 @@ def fetch_water_level_data(start_date, end_date, station_id):
 
         response = requests.get(base_url, params=params)
         if 200 <= response.status_code < 300:
-            data.extend(response.json()["data"])
+            if product == "water_level":
+                data.extend(response.json()["data"])
+            else:
+                data.extend(response.json()["predictions"])
         else:
             print(
                 f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
             )
 
-        current_date += interval + timedelta(days=1)
+        if product == "water_level":
+            current_date += interval + timedelta(minutes=6)
+        else:
+            current_date = end_date + interval
 
     return data
 
 
-def gather_data_for_multiple_years(start_year, end_year, station_id):
+def gather_data_for_multiple_years(start_year, end_year, station_id, tide_product):
     data = []
     current_year = start_year
     while current_year < end_year:
         start_date = datetime(current_year, 10, 1)
         end_date = datetime(current_year + 1, 4, 2)
-        data.extend(fetch_water_level_data(start_date, end_date, station_id))
+        data.extend(fetch_tide_data(start_date, end_date, station_id, tide_product))
         current_year += 1
 
     return data
 
 
+# 6-minute water level obs. NOAA CO-OPS API limits data retrievals to 31 days for this product
+tide_product = "water_level"
 water_level_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id
+    start_year, end_year, tidal_station_id, tide_product
 )
 
 water_level_obs = pd.DataFrame(water_level_data)
@@ -186,58 +197,11 @@ water_level_obs.drop(["date_time", "s", "f", "q"], axis=1, inplace=True)
 water_level_obs = water_level_obs.tz_localize(tz="UTC")
 water_level_obs["water_level"] = water_level_obs["water_level"].astype(float)
 
-# %% [markdown]
-# Request base tide predictions from NOAA CO-OPS
 
-
-# %% 6-minute base tide predictions from NOAA CO-OPS
-def fetch_tides(start_date, end_date, station_id):
-    base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-    product = "predictions"
-    datum = "MLLW"
-    units = "english"
-    time_zone = "GMT"
-    format_type = "json"
-
-    current_date = start_date
-    data = []
-
-    start = current_date.strftime("%Y%m%d %H:%M")
-    end = (end_date).strftime("%Y%m%d %H:%M")
-    params = {
-        "product": product,
-        "datum": datum,
-        "units": units,
-        "time_zone": time_zone,
-        "format": format_type,
-        "begin_date": start,
-        "end_date": end,
-        "station": station_id,
-    }
-    response = requests.get(base_url, params=params)
-    if 200 <= response.status_code < 300:
-        data.extend(response.json()["predictions"])
-    else:
-        print(
-            f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
-        )
-
-    return data
-
-
-def gather_data_for_multiple_years(start_year, end_year, station_id):
-    data = []
-    current_year = start_year
-    while current_year < end_year:
-        start_date = datetime(current_year, 10, 1)
-        end_date = datetime(current_year + 1, 4, 2)
-        data.extend(fetch_tides(start_date, end_date, station_id))
-        current_year += 1
-    return data
-
-
+# 6-minute base tide predictions from NOAA CO-OPS
+tide_product = "predictions"
 tide_prediction_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id
+    start_year, end_year, tidal_station_id, tide_product
 )
 
 tide_pred = pd.DataFrame(tide_prediction_data)
