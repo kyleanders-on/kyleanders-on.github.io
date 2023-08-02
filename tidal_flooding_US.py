@@ -1,7 +1,4 @@
-# %% [markdown]
 # Import necessary packages
-
-# %%
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,7 +9,11 @@ import seaborn as sns
 from scipy import stats
 
 
-# %% Map ICAO codes to NCEI station identifiers (AWSBAN QID)
+# Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
+start_year = 2022
+end_year = 2023
+
+# Map ICAO codes to NCEI station identifiers (AWSBAN QID)
 # Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
 # but that file is too large to justify this mapping feature.
 wx_station_code = "KBFI"
@@ -26,12 +27,21 @@ id_map = pd.json_normalize(
 )
 
 
-# %% Map tidal station names to station ID
-
+# Map tidal station names to station ID
 # If station name is unknown, you can browse available stations at https://tidesandcurrents.noaa.gov/
-
-
 def get_station_id(station_name):
+    """
+    Get the NOAA CO-OPS station ID for a given tidal station name.
+
+    Parameters:
+        station_name (str): The name of the tidal station.
+
+    Returns:
+        str: The NOAA station ID corresponding to the provided tidal station name.
+
+    Raises:
+        ValueError: If the station name is not found in the NOAA database.
+    """
     url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
     response = requests.get(url)
     id_map = pd.json_normalize(response.json()["stations"])
@@ -42,24 +52,32 @@ def get_station_id(station_name):
         station_id = id_map.loc[station_name]["id"]
         return station_id
     except KeyError:
-        print(f"Error: Station '{station_name}' not found in the NOAA database.")
-        return None
+        raise ValueError(
+            f'Error: Station "{station_name}" not found in the NOAA database.'
+        )
 
 
 tidal_station_name = "Seattle"
-tidal_station_id = get_station_id(tidal_station_name)
+try:
+    tidal_station_id = get_station_id(tidal_station_name)
+except ValueError as error_msg:
+    print(str(error_msg))
 
 
-# %% Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2022
-end_year = 2023
-
-# %% [markdown]
 # Request SLP data from NCEI database (Integrated Surface Dataset)
-
-
-# %% Hourly SLP observations
+# Hourly SLP observations
 def fetch_SLP(start_year, end_year):
+    """
+    Request hourly SLP (Sea Level Pressure) observations from the NCEI database.
+    Limit data requests to the date range October 1 - April 1.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+
+    Returns:
+        list: A list containing JSON data with SLP observations.
+    """
     base_url = "https://www.ncei.noaa.gov/access/services/data/v1"
     station_id = "72793524234"  # AWSBAN Qualified ID
     wx_variable = "SLP"
@@ -113,11 +131,8 @@ SLP_data["SLP"].replace(",", ".", regex=True, inplace=True)
 SLP_data["SLP"] = SLP_data["SLP"].astype(float) / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
-# %% [markdown]
+
 # Request water level observations and base tide predictions from NOAA CO-OPS
-
-
-# %%
 def fetch_tide_data(start_date, end_date, station_id, tide_product):
     base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     product = tide_product
@@ -183,48 +198,43 @@ def gather_data_for_multiple_years(start_year, end_year, station_id, tide_produc
     return data
 
 
+def process_json(start_year, end_year, tidal_station_id, tide_product):
+    data = gather_data_for_multiple_years(
+        start_year, end_year, tidal_station_id, tide_product
+    )
+    df = pd.DataFrame(data)
+    df.rename(columns={"t": "date_time", "v": "water_level"}, inplace=True)
+    df["date_time"] = pd.to_datetime(df["date_time"])
+    df.set_index("date_time", inplace=True)
+    df = df.tz_localize(tz="UTC")
+    df["water_level"] = df["water_level"].astype(float)
+
+    if tide_product == "water_level":
+        df.drop(["s", "f", "q"], axis=1, inplace=True)
+
+    return df
+
+
 # 6-minute water level obs. NOAA CO-OPS API limits data retrievals to 31 days for this product
 tide_product = "water_level"
-water_level_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id, tide_product
-)
-
-water_level_obs = pd.DataFrame(water_level_data)
-water_level_obs.rename(columns={"t": "date_time", "v": "water_level"}, inplace=True)
-water_level_obs["date_time"] = pd.to_datetime(water_level_obs["date_time"])
-water_level_obs.set_index(water_level_obs["date_time"], inplace=True)
-water_level_obs.drop(["date_time", "s", "f", "q"], axis=1, inplace=True)
-water_level_obs = water_level_obs.tz_localize(tz="UTC")
-water_level_obs["water_level"] = water_level_obs["water_level"].astype(float)
-
+water_level_obs = process_json(start_year, end_year, tidal_station_id, tide_product)
 
 # 6-minute base tide predictions from NOAA CO-OPS
 tide_product = "predictions"
-tide_prediction_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id, tide_product
-)
+tide_pred = process_json(start_year, end_year, tidal_station_id, tide_product)
 
-tide_pred = pd.DataFrame(tide_prediction_data)
-tide_pred.rename(columns={"t": "date_time", "v": "water_level"}, inplace=True)
-tide_pred["date_time"] = pd.to_datetime(tide_pred["date_time"])
-tide_pred.set_index(tide_pred["date_time"], inplace=True)
-tide_pred.drop(["date_time"], axis=1, inplace=True)
-tide_pred = tide_pred.tz_localize(tz="UTC")
-tide_pred["water_level"] = tide_pred["water_level"].astype(float)
 
-# %% [markdown]
-# Process data
-
-# %%
-
+# Regression analysis and data visualization
+# Perform Ordinary Least Squares (OLS) linear regression and fit the model
 SLP = SLP_data["SLP"].dropna()
 surge = (water_level_obs - tide_pred).dropna().reindex(SLP.index, method="nearest")
 
 X = SLP
 X = sm.add_constant(X)
 y = surge["water_level"]
-
 model = sm.OLS(y, X).fit()
+
+# Print summary statistics
 print(model.summary())
 
 # plot best fit line
@@ -239,7 +249,6 @@ ax.set_title(
     "Observed water level/base tide prediction difference vs sea level pressure",
 )
 
-fig.show()
 
 # Compare residuals distribution to a normal curve
 mu, std = stats.norm.fit(model.resid)
@@ -257,14 +266,12 @@ sns.lineplot(
     x=x, y=p, color="orange", ax=ax2, label="Normal Distribution", linewidth=2.5
 )
 
-fig2.show()
 
 # plot residuals vs leverage
 norm_resid = model.get_influence().resid_studentized_internal
 lev = model.get_influence().hat_matrix_diag
 Cooks_distance = model.get_influence().cooks_distance[0]
 
-# plot_lm = plt.figure()
 fig3, ax3 = plt.subplots()
 fig3.set_size_inches(10, 7)
 plt.scatter(lev, norm_resid, alpha=0.5)
@@ -285,43 +292,15 @@ leverage_top_3 = np.flip(np.argsort(Cooks_distance), 0)[:3]
 for i in leverage_top_3:
     ax3.annotate(i, xy=(lev[i], norm_resid[i]))
 
-fig3.show()
-# %% [markdown]
+plt.show()
+
 # Regression model prediction output
-
-
-# %%
-def pred_interval(result, SLP, sig_lvl):
-    # result: OLS model.
-    # SLP: input sea level pressure value
-    # sig_lvl: level of significance.
-    X = [1, SLP]  # put input value into correct format
-    predictions = result.get_prediction(X)
-    frame = predictions.summary_frame(alpha=sig_lvl)
-    return frame["mean"][0], frame["obs_ci_lower"][0], frame["obs_ci_upper"][0]
-
-
-# new_SLP_value = float(input("SLP value in hPa: "))
-
-# best_guess, PI_lower, PI_upper = pred_interval(model, new_SLP_value, 0.05)
-
-# print(
-#     "\n95% confidence the true storm surge value is between "
-#     + str(PI_lower.round(3))
-#     + "ft - "
-#     + str(PI_upper.round(3))
-#     + "ft.\n"
-# )
-# print("Best guess is " + str(best_guess.round(3)) + "ft.")
-
-# Create an array of realistic SLP values (900-1050)hPa
+# Create an array of realistic SLP values (900-1050 hPa)
 real_SLP = np.arange(900, 1051)
 x = sm.add_constant(real_SLP)
 pred = model.get_prediction(x)
-frame = pred.summary_frame(alpha=0.05)
+model_output = pred.summary_frame(alpha=0.05)
 
-# add realistic SLP values to output DataFrame
-frame["SLP_values"] = real_SLP
-frame.set_index("SLP_values", inplace=True)
-
-# %%
+# Add realistic SLP values to output DataFrame
+model_output["SLP_values"] = real_SLP
+model_output.set_index("SLP_values", inplace=True)
