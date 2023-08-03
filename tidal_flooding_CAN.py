@@ -1,7 +1,3 @@
-# %% [markdown]
-# Import necessary packages
-
-# %%
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,16 +8,14 @@ import seaborn as sns
 from scipy import stats
 
 
-# %%
 # Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2022
+start_year = 2019
 end_year = 2023
 
 # HTTP response status codes success class (200-299)
 http_success_codes = range(200, 300)
 
-
-# %% Map ICAO codes to NCEI station identifiers (AWSBAN QID)
+# Map ICAO codes to NCEI station identifiers (AWSBAN QID)
 # Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
 # but that file is too large to justify this mapping feature.
 wx_station_code = "KBLI"
@@ -35,7 +29,6 @@ id_map = pd.json_normalize(
 )
 
 
-# %%
 def get_station_id(station_name):
     """
     Get the station ID for a given tidal station name in British Columbia.
@@ -71,7 +64,6 @@ tidal_station_name = "Point Atkinson"
 tidal_station_id = get_station_id(tidal_station_name)
 
 
-# %%
 def fetch_SLP(start_year, end_year):
     """
     Request hourly SLP (Sea Level Pressure) observations from the NCEI database (Integrated Surface Dataset).
@@ -148,7 +140,6 @@ SLP_data["SLP"] = pd.to_numeric(SLP_data["SLP"], errors="coerce") / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
 
-# %%
 def fetch_water_level_data(start_date, end_date, station_id, ts_product):
     """
     Gathers 5-minute water level and tide prediction data from Canadian Hydrographic Service (CHS) API for a specific station.
@@ -260,7 +251,6 @@ tide_pred.set_index(tide_pred["datetime"], inplace=True)
 tide_pred.drop(["datetime", "qcFlagCode", "timeSeriesId"], axis=1, inplace=True)
 
 
-# %%
 # Regression analysis and data visualization
 # Perform Ordinary Least Squares (OLS) linear regression and fit the model
 SLP = SLP_data["SLP"].dropna()
@@ -340,5 +330,3 @@ model_output = pred.summary_frame(alpha=0.05)
 # add realistic SLP values to output DataFrame
 model_output["SLP_values"] = real_SLP
 model_output.set_index("SLP_values", inplace=True)
-
-# %%

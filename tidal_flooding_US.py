@@ -1,4 +1,3 @@
-# Import necessary packages
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,7 +9,7 @@ from scipy import stats
 
 
 # Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2022
+start_year = 2019
 end_year = 2023
 
 # HTTP response status codes success class (200-299)
