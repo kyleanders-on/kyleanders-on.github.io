@@ -30,11 +30,10 @@ id_map = pd.json_normalize(
 )
 
 
-# Map tidal station names to station ID
-# If station name is unknown, you can browse available stations at https://tidesandcurrents.noaa.gov/
 def get_station_id(station_name):
     """
     Get the NOAA CO-OPS station ID for a given tidal station name.
+    If station name is unknown, you can browse available stations at https://tidesandcurrents.noaa.gov/.
 
     Parameters:
         station_name (str): The name of the tidal station.
@@ -62,11 +61,9 @@ tidal_station_name = "Seattle"
 tidal_station_id = get_station_id(tidal_station_name)
 
 
-# Request SLP data from NCEI database (Integrated Surface Dataset)
-# Hourly SLP observations
 def fetch_SLP(start_year, end_year):
     """
-    Request hourly SLP (Sea Level Pressure) observations from the NCEI database.
+    Request hourly SLP (Sea Level Pressure) observations from the NCEI database (Integrated Surface Dataset).
     Limit data requests to the date range October 1 - April 1.
 
     Parameters:
@@ -140,7 +137,6 @@ SLP_data["SLP"] = pd.to_numeric(SLP_data["SLP"], errors="coerce") / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
 
-# Request water level observations and base tide predictions from NOAA CO-OPS
 def fetch_tide_data(start_date, end_date, station_id, tide_product):
     """
     Gathers water level and tide data from NOAA CO-OPS API for a specific station.
