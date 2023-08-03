@@ -12,6 +12,15 @@ import seaborn as sns
 from scipy import stats
 
 
+# %%
+# Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
+start_year = 2022
+end_year = 2023
+
+# HTTP response status codes success class (200-299)
+http_success_codes = range(200, 300)
+
+
 # %% Map ICAO codes to NCEI station identifiers (AWSBAN QID)
 # Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
 # but that file is too large to justify this mapping feature.
@@ -33,34 +42,54 @@ id_map = pd.json_normalize(
 
 
 def get_station_id(station_name):
+    """
+    Get the station ID for a given tidal station name in British Columbia.
+
+    This function fetches the station metadata from the Canadian Hydrographic Service (CHS)
+    API and maps the provided station name to its corresponding station ID.
+
+    Parameters:
+        station_name (str): The name of the tidal station in British Columbia.
+
+    Returns:
+        int: The station ID if the provided station name is found in the CHS
+        database.
+
+    Raises:
+        ValueError: If the station name is not found in the CHS database.
+    """
     url = "https://api-iwls.dfo-mpo.gc.ca/api/v1/stations?chs-region-code=PAC"
     response = requests.get(url)
-    id_map = pd.json_normalize(response.json())
-    id_map.set_index(id_map["officialName"], inplace=True)
-    id_map.drop(columns=["officialName"], inplace=True)
+    id_map = pd.json_normalize(response.json()).set_index("officialName")
 
     try:
         station_id = id_map.loc[station_name]["id"]
         return station_id
-    except KeyError:
-        print(f"Error: Station '{station_name}' not found in the CHS database.")
-        return None
+    except KeyError as error:
+        raise ValueError(
+            f"Error: Station '{station_name}' not found in the CHS database."
+        ) from error
 
 
 tidal_station_name = "Point Atkinson"
 tidal_station_id = get_station_id(tidal_station_name)
 
 
-# %% Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2022
-end_year = 2023
-
-# %% [markdown]
+# %%
 # Request SLP data from NCEI database (Integrated Surface Dataset)
-
-
-# %% Hourly SLP observations
+# Hourly SLP observations
 def fetch_SLP(start_year, end_year):
+    """
+    Request hourly SLP (Sea Level Pressure) observations from the NCEI database.
+    Limit data requests to the date range October 1 - April 1.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+
+    Returns:
+        list: A list containing JSON data with SLP observations.
+    """
     base_url = "https://www.ncei.noaa.gov/access/services/data/v1"
     station_id = "72797624217"  # AWSBAN Qualified ID
     wx_variable = "SLP"
@@ -79,10 +108,10 @@ def fetch_SLP(start_year, end_year):
 
     data = []
     response = requests.get(base_url, params=API_arguments)
-    if 200 <= response.status_code < 300:
+    if response.status_code in http_success_codes:
         data.append(response.json())
     else:
-        print(
+        raise ValueError(
             f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
         )
 
@@ -90,6 +119,16 @@ def fetch_SLP(start_year, end_year):
 
 
 def gather_SLP_for_multiple_years(start_year, end_year):
+    """
+    Gather SLP data between October 1 to April 1 for multiple years.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+
+    Returns:
+        list: A list containing JSON data with SLP observations for each year.
+    """
     data = []
     current_year = start_year
     while current_year < end_year:
@@ -104,25 +143,38 @@ SLP_data = gather_SLP_for_multiple_years(start_year, end_year)
 
 SLP_data = pd.json_normalize(SLP_data, record_path=[0])
 SLP_data["DATE"] = pd.to_datetime(SLP_data["DATE"])
-SLP_data.set_index(SLP_data["DATE"], inplace=True)
+SLP_data.set_index("DATE", inplace=True)
 SLP_data = SLP_data.tz_localize(tz="UTC")
 SLP_data.drop(
-    columns=["REPORT_TYPE", "DATE", "QUALITY_CONTROL", "STATION", "SOURCE"],
+    columns=["REPORT_TYPE", "QUALITY_CONTROL", "STATION", "SOURCE"],
     inplace=True,
 )
 SLP_data["SLP"].replace(",", ".", regex=True, inplace=True)
-SLP_data["SLP"] = SLP_data["SLP"].astype(float) / 10
+SLP_data["SLP"] = pd.to_numeric(SLP_data["SLP"], errors="coerce") / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
 # %% [markdown]
 # Request water level observations and predictions from CHS
 
 
-# %% 5-minute water level observations and predicitions. CHS API limits data retrievals to 7 days for this product
-# time-series-codes: wlo = water level observations
-#                    wlp = water level predictions
-# API documentation: https://api-iwls.dfo-mpo.gc.ca/swagger-ui/index.html
+# %%
 def fetch_water_level_data(start_date, end_date, station_id, ts_product):
+    """
+    Gathers 5-minute water level and tide prediction data from Canadian Hydrographic Service (CHS) API for a specific station.
+    CHS API limits data retrievals to 7 days for this product.
+    Time-series-codes: wlo = water level observations
+                       wlp = water level predictions
+    API documentation: https://api-iwls.dfo-mpo.gc.ca/swagger-ui/index.html
+
+    Parameters:
+        start_date (datetime): Start date for data retrieval.
+        end_date (datetime): End date for data retrieval.
+        station_id (str): The station ID for the tide data.
+        tide_product (str): The type of tide data to request (e.g., "water_level" or "predictions").
+
+    Returns:
+        list: A list containing json data with water level observations or base tide prediction data.
+    """
     base_url = f"https://api-iwls.dfo-mpo.gc.ca/api/v1/stations/{station_id}/data"
     product = ts_product  # water level observations
     obs_interval = "FIVE_MINUTES"
@@ -147,10 +199,10 @@ def fetch_water_level_data(start_date, end_date, station_id, ts_product):
             params["to"] = end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         response = requests.get(base_url, params=params)
-        if 200 <= response.status_code < 300:
+        if response.status_code in http_success_codes:
             data.extend(response.json())
         else:
-            print(
+            raise ValueError(
                 f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
             )
 
@@ -160,6 +212,17 @@ def fetch_water_level_data(start_date, end_date, station_id, ts_product):
 
 
 def gather_data_for_multiple_years(start_year, end_year, station_id, ts_product):
+    """
+    Gather tidal data between October 1 to April 1 for multiple years.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+        ts_product (str): The type of tide data to request (e.g., "water_level" or "predictions").
+
+    Returns:
+        list: A list containing json data with water level observations or base tide prediction data.
+    """
     data = []
     current_year = start_year
     while current_year < end_year:
@@ -173,7 +236,7 @@ def gather_data_for_multiple_years(start_year, end_year, station_id, ts_product)
     return data
 
 
-# %% Water level observations from CHS
+# Water level observations from CHS
 
 time_series_code = "wlo"
 water_level_data = gather_data_for_multiple_years(
@@ -190,7 +253,7 @@ water_level_obs.drop(
     ["datetime", "qcFlagCode", "timeSeriesId", "reviewed"], axis=1, inplace=True
 )
 
-# %% Base tide predictions from CHS
+# Base tide predictions from CHS
 
 time_series_code = "wlp"
 tide_prediction_data = gather_data_for_multiple_years(
@@ -205,11 +268,10 @@ tide_pred["datetime"] = pd.to_datetime(tide_pred["datetime"])
 tide_pred.set_index(tide_pred["datetime"], inplace=True)
 tide_pred.drop(["datetime", "qcFlagCode", "timeSeriesId"], axis=1, inplace=True)
 
-# %% [markdown]
-# Process data
 
 # %%
-
+# Regression analysis and data visualization
+# Perform Ordinary Least Squares (OLS) linear regression and fit the model
 SLP = SLP_data["SLP"].dropna()
 surge = (water_level_obs - tide_pred).dropna().reindex(SLP.index, method="nearest")
 
@@ -232,7 +294,6 @@ ax.set_title(
     "Observed water level/base tide prediction difference vs sea level pressure",
 )
 
-fig.show()
 
 # Compare residuals distribution to a normal curve
 mu, std = stats.norm.fit(model.resid)
@@ -250,14 +311,12 @@ sns.lineplot(
     x=x, y=p, color="orange", ax=ax2, label="Normal Distribution", linewidth=2.5
 )
 
-fig2.show()
 
 # plot residuals vs leverage
 norm_resid = model.get_influence().resid_studentized_internal
 lev = model.get_influence().hat_matrix_diag
 Cooks_distance = model.get_influence().cooks_distance[0]
 
-# plot_lm = plt.figure()
 fig3, ax3 = plt.subplots()
 fig3.set_size_inches(10, 7)
 plt.scatter(lev, norm_resid, alpha=0.5)
@@ -278,43 +337,17 @@ leverage_top_3 = np.flip(np.argsort(Cooks_distance), 0)[:3]
 for i in leverage_top_3:
     ax3.annotate(i, xy=(lev[i], norm_resid[i]))
 
-fig3.show()
-# %% [markdown]
+plt.show()
+
 # Regression model prediction output
-
-
-# %%
-def pred_interval(result, SLP, sig_lvl):
-    # result: OLS model.
-    # SLP: input sea level pressure value
-    # sig_lvl: level of significance.
-    X = [1, SLP]  # put input value into correct format
-    predictions = result.get_prediction(X)
-    frame = predictions.summary_frame(alpha=sig_lvl)
-    return frame["mean"][0], frame["obs_ci_lower"][0], frame["obs_ci_upper"][0]
-
-
-# new_SLP_value = float(input("SLP value in hPa: "))
-
-# best_guess, PI_lower, PI_upper = pred_interval(model, new_SLP_value, 0.05)
-
-# print(
-#     "\n95% confidence the true storm surge value is between "
-#     + str(PI_lower.round(3))
-#     + "ft - "
-#     + str(PI_upper.round(3))
-#     + "ft.\n"
-# )
-# print("Best guess is " + str(best_guess.round(3)) + "ft.")
-
-# Create an array of realistic SLP values (900-1050)hPa
+# Create an array of realistic SLP values (900-1050 hPa)
 real_SLP = np.arange(900, 1051)
 x = sm.add_constant(real_SLP)
 pred = model.get_prediction(x)
-frame = pred.summary_frame(alpha=0.05)
+model_output = pred.summary_frame(alpha=0.05)
 
 # add realistic SLP values to output DataFrame
-frame["SLP_values"] = real_SLP
-frame.set_index("SLP_values", inplace=True)
+model_output["SLP_values"] = real_SLP
+model_output.set_index("SLP_values", inplace=True)
 
 # %%

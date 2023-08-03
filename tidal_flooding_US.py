@@ -13,6 +13,9 @@ from scipy import stats
 start_year = 2022
 end_year = 2023
 
+# HTTP response status codes success class (200-299)
+http_success_codes = range(200, 300)
+
 # Map ICAO codes to NCEI station identifiers (AWSBAN QID)
 # Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
 # but that file is too large to justify this mapping feature.
@@ -44,24 +47,19 @@ def get_station_id(station_name):
     """
     url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
     response = requests.get(url)
-    id_map = pd.json_normalize(response.json()["stations"])
-    id_map.set_index(id_map["name"], inplace=True)
-    id_map.drop(columns=["name"], inplace=True)
+    id_map = pd.json_normalize(response.json()["stations"]).set_index("name")
 
     try:
         station_id = id_map.loc[station_name]["id"]
         return station_id
-    except KeyError:
+    except KeyError as error:
         raise ValueError(
             f'Error: Station "{station_name}" not found in the NOAA database.'
-        )
+        ) from error
 
 
 tidal_station_name = "Seattle"
-try:
-    tidal_station_id = get_station_id(tidal_station_name)
-except ValueError as error_msg:
-    print(str(error_msg))
+tidal_station_id = get_station_id(tidal_station_name)
 
 
 # Request SLP data from NCEI database (Integrated Surface Dataset)
@@ -96,10 +94,10 @@ def fetch_SLP(start_year, end_year):
 
     data = []
     response = requests.get(base_url, params=API_arguments)
-    if 200 <= response.status_code < 300:
+    if response.status_code in http_success_codes:
         data.append(response.json())
     else:
-        print(
+        raise ValueError(
             f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
         )
 
@@ -107,6 +105,16 @@ def fetch_SLP(start_year, end_year):
 
 
 def gather_SLP_for_multiple_years(start_year, end_year):
+    """
+    Gather SLP data between October 1 to April 1 for multiple years.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+
+    Returns:
+        list: A list containing JSON data with SLP observations for each year.
+    """
     data = []
     current_year = start_year
     while current_year < end_year:
@@ -121,19 +129,31 @@ SLP_data = gather_SLP_for_multiple_years(start_year, end_year)
 
 SLP_data = pd.json_normalize(SLP_data, record_path=[0])
 SLP_data["DATE"] = pd.to_datetime(SLP_data["DATE"])
-SLP_data.set_index(SLP_data["DATE"], inplace=True)
+SLP_data.set_index("DATE", inplace=True)
 SLP_data = SLP_data.tz_localize(tz="UTC")
 SLP_data.drop(
-    columns=["REPORT_TYPE", "DATE", "QUALITY_CONTROL", "STATION", "SOURCE"],
+    columns=["REPORT_TYPE", "QUALITY_CONTROL", "STATION", "SOURCE"],
     inplace=True,
 )
 SLP_data["SLP"].replace(",", ".", regex=True, inplace=True)
-SLP_data["SLP"] = SLP_data["SLP"].astype(float) / 10
+SLP_data["SLP"] = pd.to_numeric(SLP_data["SLP"], errors="coerce") / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
 
 # Request water level observations and base tide predictions from NOAA CO-OPS
 def fetch_tide_data(start_date, end_date, station_id, tide_product):
+    """
+    Gathers water level and tide data from NOAA CO-OPS API for a specific station.
+
+    Parameters:
+        start_date (datetime): Start date for data retrieval.
+        end_date (datetime): End date for data retrieval.
+        station_id (str): The station ID for the tide data.
+        tide_product (str): The type of tide data to request (e.g., "water_level" or "predictions").
+
+    Returns:
+        list: A list containing json data with water level observations or base tide prediction data.
+    """
     base_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     product = tide_product
     datum = "MLLW"
@@ -168,13 +188,13 @@ def fetch_tide_data(start_date, end_date, station_id, tide_product):
             params["end_date"] = end_date.strftime("%Y%m%d %H:%M")
 
         response = requests.get(base_url, params=params)
-        if 200 <= response.status_code < 300:
+        if response.status_code in http_success_codes:
             if product == "water_level":
                 data.extend(response.json()["data"])
             else:
                 data.extend(response.json()["predictions"])
         else:
-            print(
+            raise ValueError(
                 f"Failed to fetch data for {start} to {end}. Status Code: {response.status_code}"
             )
 
@@ -187,6 +207,17 @@ def fetch_tide_data(start_date, end_date, station_id, tide_product):
 
 
 def gather_data_for_multiple_years(start_year, end_year, station_id, tide_product):
+    """
+    Gather tidal data between October 1 to April 1 for multiple years.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+        tide_product (str): The type of tide data to request (e.g., "water_level" or "predictions").
+
+    Returns:
+        list: A list containing json data with water level observations or base tide prediction data.
+    """
     data = []
     current_year = start_year
     while current_year < end_year:
@@ -199,6 +230,18 @@ def gather_data_for_multiple_years(start_year, end_year, station_id, tide_produc
 
 
 def process_json(start_year, end_year, tidal_station_id, tide_product):
+    """
+    Convert list containing json data to Pandas DataFrame with relavent information.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+        tidal_station_id (str): The NOAA station ID.
+        tide_product (str): The type of tide data to request (e.g., "water_level" or "predictions").
+
+    Returns:
+        Pandas DataFrame: A DataFrame with relavent tidal data.
+    """
     data = gather_data_for_multiple_years(
         start_year, end_year, tidal_station_id, tide_product
     )
@@ -207,7 +250,7 @@ def process_json(start_year, end_year, tidal_station_id, tide_product):
     df["date_time"] = pd.to_datetime(df["date_time"])
     df.set_index("date_time", inplace=True)
     df = df.tz_localize(tz="UTC")
-    df["water_level"] = df["water_level"].astype(float)
+    df["water_level"] = pd.to_numeric(df["water_level"], errors="coerce")
 
     if tide_product == "water_level":
         df.drop(["s", "f", "q"], axis=1, inplace=True)
