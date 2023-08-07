@@ -6,10 +6,11 @@ import numpy as np
 import statsmodels.api as sm
 import seaborn as sns
 from scipy import stats
+from sklearn.linear_model import LinearRegression
 
 
 # Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2019
+start_year = 2022
 end_year = 2023
 
 # HTTP response status codes success class (200-299)
@@ -267,6 +268,7 @@ tide_pred = process_json(start_year, end_year, tidal_station_id, tide_product)
 SLP = SLP_data["SLP"].dropna()
 surge = (water_level_obs - tide_pred).dropna().reindex(SLP.index, method="nearest")
 
+
 X = SLP
 X = sm.add_constant(X)
 y = surge["water_level"]
@@ -275,12 +277,13 @@ model = sm.OLS(y, X).fit()
 # Print summary statistics
 print(model.summary())
 
+
 # plot best fit line
 reg_line = model.predict(X)
 fig, ax = plt.subplots()
 fig.set_size_inches(10, 7)
 ax.plot(X["SLP"].values, y.values, "k.")
-ax.plot(X["SLP"].values, reg_line.values, "r")
+ax.plot(X["SLP"].values, reg_line.values, "r", label="OLS model fit")
 ax.set_xlabel(f"{wx_station_code} Sea Level Pressure (hPa)")
 ax.set_ylabel(f"{tidal_station_name} Storm surge estimate (ft)")
 ax.set_title(
@@ -330,7 +333,6 @@ leverage_top_3 = np.flip(np.argsort(Cooks_distance), 0)[:3]
 for i in leverage_top_3:
     ax3.annotate(i, xy=(lev[i], norm_resid[i]))
 
-plt.show()
 
 # Regression model prediction output
 # Create an array of realistic SLP values (900-1050 hPa)
@@ -342,3 +344,8 @@ model_output = pred.summary_frame(alpha=0.05)
 # Add realistic SLP values to output DataFrame
 model_output["SLP_values"] = real_SLP
 model_output.set_index("SLP_values", inplace=True)
+
+ax.plot(model_output["obs_ci_lower"], "b--")
+ax.plot(model_output["obs_ci_upper"], "b--", label="95% prediction interval")
+ax.legend()
+plt.show()
