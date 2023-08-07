@@ -218,37 +218,44 @@ def gather_data_for_multiple_years(start_year, end_year, station_id, ts_product)
     return data
 
 
-# Water level observations from CHS
+def process_json(start_year, end_year, tidal_station_id, time_series_code):
+    """
+    Convert list containing json data to Pandas DataFrame with relavent information.
+
+    Parameters:
+        start_year (int): The start year of the data retrieval.
+        end_year (int): The end year of the data retrieval.
+        tidal_station_id (str): The NOAA station ID.
+        time_series_code (str): The type of tide data to request (e.g., "wlo" or "wlp").
+
+    Returns:
+        Pandas DataFrame: A DataFrame with relavent tidal data.
+    """
+    data = gather_data_for_multiple_years(
+        start_year, end_year, tidal_station_id, time_series_code
+    )
+    df = pd.DataFrame(data)
+    df.rename(columns={"eventDate": "datetime", "value": "water_level"}, inplace=True)
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df.set_index("datetime", inplace=True)
+    df.drop(["qcFlagCode", "timeSeriesId"], axis=1, inplace=True)
+
+    if time_series_code == "wlo":
+        df.drop(["reviewed"], axis=1, inplace=True)
+
+    return df
+
+
+# Water level observations from CHS. wlo = water level observations.
 
 time_series_code = "wlo"
-water_level_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id, time_series_code
-)
+water_level_obs = process_json(start_year, end_year, tidal_station_id, time_series_code)
 
-water_level_obs = pd.DataFrame(water_level_data)
-water_level_obs.rename(
-    columns={"eventDate": "datetime", "value": "water_level"}, inplace=True
-)
-water_level_obs["datetime"] = pd.to_datetime(water_level_obs["datetime"])
-water_level_obs.set_index(water_level_obs["datetime"], inplace=True)
-water_level_obs.drop(
-    ["datetime", "qcFlagCode", "timeSeriesId", "reviewed"], axis=1, inplace=True
-)
 
-# Base tide predictions from CHS
+# Base tide predictions from CHS. wlp = water level predictions.
 
 time_series_code = "wlp"
-tide_prediction_data = gather_data_for_multiple_years(
-    start_year, end_year, tidal_station_id, time_series_code
-)
-
-tide_pred = pd.DataFrame(tide_prediction_data)
-tide_pred.rename(
-    columns={"eventDate": "datetime", "value": "water_level"}, inplace=True
-)
-tide_pred["datetime"] = pd.to_datetime(tide_pred["datetime"])
-tide_pred.set_index(tide_pred["datetime"], inplace=True)
-tide_pred.drop(["datetime", "qcFlagCode", "timeSeriesId"], axis=1, inplace=True)
+tide_pred = process_json(start_year, end_year, tidal_station_id, time_series_code)
 
 
 # Regression analysis and data visualization
@@ -268,7 +275,7 @@ reg_line = model.predict(X)
 fig, ax = plt.subplots()
 fig.set_size_inches(10, 7)
 ax.plot(X["SLP"].values, y.values, "k.")
-ax.plot(X["SLP"].values, reg_line.values, "r")
+ax.plot(X["SLP"].values, reg_line.values, "r", label="OLS model fit")
 ax.set_xlabel(f"{wx_station_code} Sea Level Pressure (hPa)")
 ax.set_ylabel(f"{tidal_station_name} Storm surge estimate (ft)")
 ax.set_title(
@@ -318,7 +325,6 @@ leverage_top_3 = np.flip(np.argsort(Cooks_distance), 0)[:3]
 for i in leverage_top_3:
     ax3.annotate(i, xy=(lev[i], norm_resid[i]))
 
-plt.show()
 
 # Regression model prediction output
 # Create an array of realistic SLP values (900-1050 hPa)
@@ -330,3 +336,8 @@ model_output = pred.summary_frame(alpha=0.05)
 # add realistic SLP values to output DataFrame
 model_output["SLP_values"] = real_SLP
 model_output.set_index("SLP_values", inplace=True)
+
+ax.plot(model_output["obs_ci_lower"], "b--")
+ax.plot(model_output["obs_ci_upper"], "b--", label="95% prediction interval")
+ax.legend()
+plt.show()
