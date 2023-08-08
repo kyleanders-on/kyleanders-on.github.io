@@ -279,7 +279,7 @@ ax.plot(X["SLP"].values, reg_line.values, "r", label="OLS model fit")
 ax.set_xlabel(f"{wx_station_code} Sea Level Pressure (hPa)")
 ax.set_ylabel(f"{tidal_station_name} Storm surge estimate (ft)")
 ax.set_title(
-    "Observed water level/base tide prediction difference vs sea level pressure",
+    f"Observed water level/base tide prediction difference vs sea level pressure ($R^2$ = {round(model.rsquared, 2)})"
 )
 
 
@@ -341,3 +341,6 @@ ax.plot(model_output["obs_ci_lower"], "b--")
 ax.plot(model_output["obs_ci_upper"], "b--", label="95% prediction interval")
 ax.legend()
 plt.show()
+
+# Write model_output to csv file
+model_output.to_csv(f"./{tidal_station_name}.csv")
