@@ -343,4 +343,5 @@ ax.legend()
 plt.show()
 
 # Write model_output to csv file
-model_output.to_csv(f"./{tidal_station_name}.csv")
+formatted_station_name = tidal_station_name.replace(" ", "_")
+model_output.to_csv(f"./{formatted_station_name}.csv")
