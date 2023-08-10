@@ -10,8 +10,12 @@ Check out the live version of the tool [here](https://kyleanders-on.github.io/).
 
 `tidal_flooding_US.py` and `tidal_flooding_CAN.py` are designed to access and process observed and modelled weather and tidal datasets. After performing multiple linear regression analysis with several predictor weather variables as well as upstream discharge for the Duwamish Watershed, it was observed that sea level pressure had the largest coefficient of determination by a significant margin. Consequently, the other independent variables were excluded from the final regression model.
 
+Results of the regression analysis has revealed that there is moderate-strong correlation between mean sea-level pressure (MSLP) and storm surge. For this project, storm surge is estimated based on the difference between astronomical tide predictions and observed water levels. Astronomical tide predictions in the United States are produced by NOAA's Center for Operational Oceanographic Products and Services (CO-OPS) and by the Canadian Hydrographic Service (CHS) in Canada.
+
+This tool will use a linear regression model to predict a 95% prediction interval for storm surge, based on new MSLP values. This will allow forecasters to use numerical weather prediction to estimate a range of likely water levels to assist in the preparation for impactful flooding events.
+
 ## Objective
 
 The December 2022 flooding event underscored the importance of evaluating existing forecasting methods, highlighting the urgent necessity for an accurate and dependable tool to predict storm surges in the Salish Sea. By developing this forecasting tool, I hope to empower communities with useful information that can aid in planning for, and ultimately minimizing, the adverse effects of tidal flooding.
 
-While this project's primary focus is on the Duwamish Watershed and the Boundary Bay area, its methodology can be applied to other regions within the Salish Sea. However, it is essential to acknowledge that certain limitations may affect the tool's forecasting accuracy, such as data availability and the complexity of meteorological and tidal factors involved.
+While this project's primary focus is on the Duwamish Watershed and the Boundary Bay area, its methodology can be applied to other regions within the Salish Sea. However, it is important to acknowledge that certain limitations may affect the tool's forecasting accuracy, such as data availability and the complexity of meteorological and tidal factors involved.
