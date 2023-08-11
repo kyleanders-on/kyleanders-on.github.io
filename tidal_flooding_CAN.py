@@ -15,18 +15,26 @@ end_year = 2023
 # HTTP response status codes success class (200-299)
 http_success_codes = range(200, 300)
 
+
 # Map ICAO codes to NCEI station identifiers (AWSBAN QID)
-# Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
-# but that file is too large to justify this mapping feature.
+# NCEI station identifiers can be found manually at https://www.ncei.noaa.gov/access/search/data-search/global-hourly
+def get_wx_station_id(station_code):
+    url = "https://raw.githubusercontent.com/kyleanders-on/kyleanders-on.github.io/main/NCEI_ID.json"
+    response = requests.get(url)
+    id_map = pd.json_normalize(response.json()["stationNames"])
+    station_name = id_map.loc[id_map["qid"] == f"ICAO:{station_code}"][
+        "preferredName"
+    ].iloc[0]
+    NCEI_id = (
+        id_map.loc[id_map["preferredName"] == station_name]["qid"]
+        .iloc[0]
+        .replace("AWSBAN:", "")
+    )
+    return NCEI_id
+
+
 wx_station_code = "KBLI"
-url = (
-    "https://www.ncei.noaa.gov/access/homr/services/station/search?qid=ICAO:"
-    + wx_station_code
-)
-response = requests.get(url)
-id_map = pd.json_normalize(
-    response.json()["stationCollection"]["stations"], record_path=["identifiers"]
-)
+NCEI_id = get_wx_station_id(wx_station_code)
 
 
 def get_station_id(station_name):

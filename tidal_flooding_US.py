@@ -6,6 +6,7 @@ import numpy as np
 import statsmodels.api as sm
 import seaborn as sns
 from scipy import stats
+import json
 
 
 # Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
@@ -15,21 +16,29 @@ end_year = 2023
 # HTTP response status codes success class (200-299)
 http_success_codes = range(200, 300)
 
+
 # Map ICAO codes to NCEI station identifiers (AWSBAN QID)
-# Still a work in progress. AWSBAN QIDs are available at https://www.ncei.noaa.gov/access/homr/services/station/simple/names/
-# but that file is too large to justify this mapping feature.
+# NCEI station identifiers can be found manually at https://www.ncei.noaa.gov/access/search/data-search/global-hourly
+def get_wx_station_id(station_code):
+    url = "https://raw.githubusercontent.com/kyleanders-on/kyleanders-on.github.io/main/NCEI_ID.json"
+    response = requests.get(url)
+    id_map = pd.json_normalize(response.json()["stationNames"])
+    station_name = id_map.loc[id_map["qid"] == f"ICAO:{station_code}"][
+        "preferredName"
+    ].iloc[0]
+    NCEI_id = (
+        id_map.loc[id_map["preferredName"] == station_name]["qid"]
+        .iloc[0]
+        .replace("AWSBAN:", "")
+    )
+    return NCEI_id
+
+
 wx_station_code = "KBFI"
-url = (
-    "https://www.ncei.noaa.gov/access/homr/services/station/search?qid=ICAO:"
-    + wx_station_code
-)
-response = requests.get(url)
-id_map = pd.json_normalize(
-    response.json()["stationCollection"]["stations"], record_path=["identifiers"]
-)
+NCEI_id = get_wx_station_id(wx_station_code)
 
 
-def get_station_id(station_name):
+def get_tide_station_id(station_name):
     """
     Get the NOAA CO-OPS station ID for a given tidal station name.
     If station name is unknown, you can browse available stations at https://tidesandcurrents.noaa.gov/.
@@ -57,10 +66,10 @@ def get_station_id(station_name):
 
 
 tidal_station_name = "Seattle"
-tidal_station_id = get_station_id(tidal_station_name)
+tidal_station_id = get_tide_station_id(tidal_station_name)
 
 
-def fetch_SLP(start_year, end_year):
+def fetch_SLP(start_year, end_year, id):
     """
     Request hourly SLP (Sea Level Pressure) observations from the NCEI database (Integrated Surface Dataset).
     Limit data requests to the date range October 1 - April 1.
@@ -73,7 +82,7 @@ def fetch_SLP(start_year, end_year):
         list: A list containing JSON data with SLP observations.
     """
     base_url = "https://www.ncei.noaa.gov/access/services/data/v1"
-    station_id = "72793524234"  # AWSBAN Qualified ID
+    station_id = id  # AWSBAN Qualified ID
     wx_variable = "SLP"
     start = datetime(start_year, 10, 1)
     end = datetime(end_year, 4, 2)
@@ -100,7 +109,7 @@ def fetch_SLP(start_year, end_year):
     return data
 
 
-def gather_SLP_for_multiple_years(start_year, end_year):
+def gather_SLP_for_multiple_years(start_year, end_year, NCEI_id):
     """
     Gather SLP data between October 1 to April 1 for multiple years.
 
@@ -115,13 +124,13 @@ def gather_SLP_for_multiple_years(start_year, end_year):
     current_year = start_year
     while current_year < end_year:
         current_end = current_year + 1
-        data.append(fetch_SLP(current_year, current_end))
+        data.append(fetch_SLP(current_year, current_end, NCEI_id))
         current_year += 1
 
     return data
 
 
-SLP_data = gather_SLP_for_multiple_years(start_year, end_year)
+SLP_data = gather_SLP_for_multiple_years(start_year, end_year, NCEI_id)
 
 SLP_data = pd.json_normalize(SLP_data, record_path=[0])
 SLP_data["DATE"] = pd.to_datetime(SLP_data["DATE"])
@@ -351,4 +360,5 @@ ax.legend()
 plt.show()
 
 # Write model_output to csv file
-model_output.to_csv(f"./{tidal_station_name}.csv")
+formatted_station_name = tidal_station_name.replace(" ", "_")
+model_output.to_csv(f"./{formatted_station_name}.csv")
