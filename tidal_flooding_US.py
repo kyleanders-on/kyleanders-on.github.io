@@ -6,7 +6,6 @@ import numpy as np
 import statsmodels.api as sm
 import seaborn as sns
 from scipy import stats
-import json
 
 
 # Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
