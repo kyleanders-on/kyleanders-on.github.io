@@ -12,7 +12,7 @@ Check out the live version of the tool [here](https://kyleanders-on.github.io/).
 
 Results of the regression analysis have revealed that there is meaningful correlation between SLP and storm surge. For this project, storm surge is estimated based on the difference between astronomical tide predictions and observed water levels. Astronomical tide predictions in the United States are produced by NOAA's Center for Operational Oceanographic Products and Services (CO-OPS) and by the Canadian Hydrographic Service (CHS) in Canada.
 
-This tool will use the linear regression model to predict a 95% prediction interval for storm surge, based on new SLP values. This will allow forecasters to use numerical weather prediction to estimate a range of likely future water levels to assist in the preparation for impactful flooding events.
+This tool will use the linear regression model to predict a 95% prediction interval for storm surge, based on forecasted SLP values. This will allow forecasters to use numerical weather prediction to estimate a range of likely future water levels to assist in the preparation for impactful flooding events.
 
 ## Objective
 
