@@ -143,7 +143,7 @@ SLP_data.drop(
     columns=["REPORT_TYPE", "QUALITY_CONTROL", "STATION", "SOURCE"],
     inplace=True,
 )
-SLP_data["SLP"].replace(",", ".", regex=True, inplace=True)
+SLP_data.replace({"SLP": ","}, {"SLP": "."}, regex=True, inplace=True)
 SLP_data["SLP"] = pd.to_numeric(SLP_data["SLP"], errors="coerce") / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
@@ -274,9 +274,11 @@ surge = (water_level_obs - tide_pred).dropna().reindex(SLP.index, method="neares
 X = SLP
 X = sm.add_constant(X)
 y = surge["water_level"]
-
 model = sm.OLS(y, X).fit()
+
+# Print summary statistics
 print(model.summary())
+
 
 # plot best fit line
 reg_line = model.predict(X)

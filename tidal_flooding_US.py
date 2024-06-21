@@ -1,3 +1,4 @@
+# %%
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,8 +10,8 @@ from scipy import stats
 
 
 # Initialize date range. Dates spanning only October 1 - April 1 will be evaluated.
-start_year = 2019
-end_year = 2023
+start_year = 2020
+end_year = 2024
 
 # HTTP response status codes success class (200-299)
 http_success_codes = range(200, 300)
@@ -139,7 +140,7 @@ SLP_data.drop(
     columns=["REPORT_TYPE", "QUALITY_CONTROL", "STATION", "SOURCE"],
     inplace=True,
 )
-SLP_data["SLP"].replace(",", ".", regex=True, inplace=True)
+SLP_data.replace({"SLP": ","}, {"SLP": "."}, regex=True, inplace=True)
 SLP_data["SLP"] = pd.to_numeric(SLP_data["SLP"], errors="coerce") / 10
 SLP_data.loc[SLP_data["SLP"] == 9999.99] = np.nan
 
@@ -341,6 +342,7 @@ for i in leverage_top_3:
     ax3.annotate(i, xy=(lev[i], norm_resid[i]))
 
 
+# %%
 # Regression model prediction output
 # Create an array of realistic SLP values (900-1050 hPa)
 real_SLP = np.arange(900, 1051)
@@ -351,13 +353,20 @@ model_output = pred.summary_frame(alpha=0.05)
 # Add realistic SLP values to output DataFrame
 model_output["SLP_values"] = real_SLP
 model_output.set_index("SLP_values", inplace=True)
+print(model_output)
+
+# %%
+# Approximate adjustment for mean water level difference between
+# Elliott Bay and the Duwamish Waterway near South Park
+# model_output['mean', 'upper', 'lower'] = ... + 0.3
 
 # Plot prediction intervals
-ax.plot(model_output["obs_ci_lower"], "b--")
-ax.plot(model_output["obs_ci_upper"], "b--", label="95% prediction interval")
-ax.legend()
-plt.show()
+# ax.plot(model_output["obs_ci_lower"], "b--")
+# ax.plot(model_output["obs_ci_upper"], "b--", label="95% prediction interval")
+# ax.legend()
+# plt.show()
 
+# %%
 # Write model_output to csv file
-formatted_station_name = tidal_station_name.replace(" ", "_")
-model_output.to_csv(f"./{formatted_station_name}.csv")
+# formatted_station_name = tidal_station_name.replace(" ", "_")
+# model_output.to_csv(f"./{formatted_station_name}.csv")
